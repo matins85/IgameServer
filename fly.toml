@@ -1,0 +1,26 @@
+app = 'igameserver'
+primary_region = 'jnb'
+console_command = '/code/manage.py shell'
+
+[build]
+
+[processes]
+  app = 'daphne igame.asgi:application --port 8000 --bind 0.0.0.0 -v2'
+  release = 'python3 manage.py migrate'
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 4
+  processes = ['app']
+
+[[vm]]
+  memory = '2gb'
+  cpu_kind = 'shared'
+  cpus = 1
+
+[[statics]]
+  guest_path = '/code/static'
+  url_prefix = '/static/'
