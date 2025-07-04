@@ -8,7 +8,6 @@ from .jwtauth import AUTH_HEADER_TYPES
 from rest_framework import status, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404
 from django.db.models import F
 from channels.layers import get_channel_layer
@@ -16,7 +15,7 @@ from asgiref.sync import async_to_sync
 from .models import GameSession, GameParticipation, UserGameStats
 from .serializers import (
     GameSessionSerializer, NumberSelectionSerializer,
-    UserStatsSerializer, LeaderboardSerializer, GameSessionDetailSerializer
+    UserStatsSerializer, LeaderboardSerializer, GameSessionDetailSerializer, GameParticipationSerializer
 )
 from .utils import get_or_create_user_stats
 
@@ -219,20 +218,19 @@ class UserStatsView(RetrieveAPIView):
 
     def get_object(self):
         user_id = self.kwargs['user_id']
-        user = get_object_or_404(User, id=user_id)
+        user = get_object_or_404(auth_user, id=user_id)
         return get_or_create_user_stats(user)
 
 
 class GameHistoryView(ListAPIView):
     """Get user's detailed game history"""
     permission_classes = [permissions.IsAuthenticated]
-    serializer_class = GameSessionDetailSerializer
+    serializer_class = GameParticipationSerializer
 
     def get_queryset(self):
-        return GameSession.objects.filter(
-            participations__user=self.request.user,
-            is_active=False
-        ).order_by('-end_time')[:50]
+        return GameParticipation.objects.filter(
+            user=self.request.user
+        ).order_by('-joined_at')[:50]
 
 
 def index(request):

@@ -3,7 +3,7 @@ from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
 from django.utils.translation import gettext_lazy as _
 from django.contrib.auth.models import AbstractUser
-from rest_framework import exceptions, serializers
+from rest_framework import serializers
 from .jwtsetting import api_settings
 from .token import RefreshToken, SlidingToken, UntypedToken
 from .models import GameSession, GameParticipation, UserGameStats
@@ -32,7 +32,7 @@ class TokenSerializer(serializers.Serializer):
         super().__init__(*args, **kwargs)
 
         self.fields[self.username_field] = serializers.CharField()
-        self.fields['password'] = default_password
+        # self.fields['password'] = PasswordField()
 
     def validate(self, attrs):
         authenticate_kwargs = {
@@ -41,7 +41,7 @@ class TokenSerializer(serializers.Serializer):
         }
         self.user = authenticate(request=self.context, **authenticate_kwargs)
         if self.user is None or not self.user.is_active:
-            raise exceptions.AuthenticationFailed(
+            raise serializers.ValidationError(
                 self.error_messages['no_active_account'],
                 'no_active_account',
             )
@@ -62,13 +62,6 @@ class LoginSerializer(TokenSerializer):
     def validate(self, attrs):
         super().validate(attrs)
         token = self.get_token(self.user)
-        user_uuid = self._kwargs.get('data').get('user_uuid')
-
-        if user_uuid is None:
-            pass
-        else:
-            self.user.user_uuid = user_uuid
-            self.user.save()
 
         data = {
             'user_id': self.user.id,
@@ -76,7 +69,6 @@ class LoginSerializer(TokenSerializer):
             'username': self.user.username,
             'is_active': self.user.is_active,
             'access_token': str(token.access_token),
-            'user_uuid': self.user.user_uuid
         }
         return data
 
@@ -164,13 +156,22 @@ class UserStatsSerializer(serializers.ModelSerializer):
         ]
 
 
+class GameSessionDetailSerializer2(serializers.ModelSerializer):
+    """Detailed serializer for game sessions"""
+    time_remaining = serializers.ReadOnlyField()
+
+    class Meta:
+        model = GameSession
+        fields = '__all__'
+
 class GameParticipationSerializer(serializers.ModelSerializer):
     """Serializer for game participation"""
     username = serializers.CharField(source='user.username', read_only=True)
+    session = GameSessionDetailSerializer2(read_only=True)
 
     class Meta:
         model = GameParticipation
-        fields = ['username', 'selected_number', 'is_winner', 'joined_at']
+        fields = ['username', 'selected_number', 'is_winner', 'joined_at', 'session']
 
 
 class GameSessionSerializer(serializers.ModelSerializer):
@@ -215,4 +216,4 @@ class LeaderboardSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserGameStats
-        fields = ['rank', 'username', 'wins', 'games_played', 'win_rate', 'best_streak']
+        fields = ['rank', 'username', 'wins', 'games_played', 'win_rate', 'best_streak', 'current_streak']

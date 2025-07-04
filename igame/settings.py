@@ -7,9 +7,13 @@ import ssl
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 environment = os.environ.get("ENVIRONMENT")
+environment2 = os.environ.get("ENVIRONMENT2")
+    
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
+
+SECRET_KEY = os.environ.get("SECRET_KEY")
 
 # SECURITY WARNING: keep the secret key used in production secret!
 if environment == "development" or environment == "test":
@@ -42,6 +46,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'django_filters',
     'crispy_forms',
+    'drf_spectacular',
     'storages',
     'accounts',
     'import_export'
@@ -216,73 +221,38 @@ AUTH_USER_MODEL = 'accounts.User'
 # DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 # Determine Redis address from environment
-REDIS_TLS_URL = os.getenv('REDIS_TLS_URL')
-REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379')  # Fallback for local dev
+REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379')
 
-# Select appropriate Redis URL based on environment
-REDIS_ADDRESS = REDIS_TLS_URL or REDIS_URL
-
-# SSL context for production (used when REDIS_TLS_URL is active)
-ssl_context = ssl.create_default_context()
-if DEBUG:
-    # Disable SSL verification in development mode
-    ssl_context.check_hostname = False
-    ssl_context.verify_mode = ssl.CERT_NONE
+insecure_ssl_context = ssl.create_default_context()
+insecure_ssl_context.check_hostname = False
+insecure_ssl_context.verify_mode = ssl.CERT_NONE
 
 # Channel Layers Configuration
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [{
+                "address": REDIS_URL,
+                "ssl": insecure_ssl_context,
+            }],
+        },
+    },
+}
 
-if environment == 'development':
-    print("Development Channel Redis")
-    # Channel Layers Configuration
-    CHANNEL_LAYERS = {
-        'default': {
-            'BACKEND': 'channels_redis.core.RedisChannelLayer',
-            'CONFIG': {
-                "hosts": [{
-                    "address": REDIS_ADDRESS,
-                }],
+# Cache Configuration with SSL Cert Validation Disabled
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": REDIS_URL,
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "CONNECTION_POOL_KWARGS": {
+                "ssl_cert_reqs": None,
             },
         },
     }
-
-    # Cache Configuration with SSL Cert Validation Disabled
-    CACHES = {
-        "default": {
-            "BACKEND": "django_redis.cache.RedisCache",
-            "LOCATION": REDIS_ADDRESS,
-            "OPTIONS": {
-                "CLIENT_CLASS": "django_redis.client.DefaultClient",
-            },
-        }
-    }
-
-else:
-    print('{} Channel Redis'.format(environment))
-    CHANNEL_LAYERS = {
-        'default': {
-            'BACKEND': 'channels_redis.core.RedisChannelLayer',
-            'CONFIG': {
-                "hosts": [{
-                    "address": REDIS_ADDRESS,
-                    "ssl": ssl_context if REDIS_TLS_URL else None,  # Apply SSL if using TLS URL
-                }],
-            },
-        },
-    }
-
-    # Cache Configuration with SSL Cert Validation Disabled
-    CACHES = {
-        "default": {
-            "BACKEND": "django_redis.cache.RedisCache",
-            "LOCATION": REDIS_ADDRESS,
-            "OPTIONS": {
-                "CLIENT_CLASS": "django_redis.client.DefaultClient",
-                "CONNECTION_POOL_KWARGS": {
-                    "ssl_cert_reqs": None,
-                },
-            },
-        }
-    }
+}
 
 # Game specific settings
 GAME_SESSION_DURATION = 20  # seconds

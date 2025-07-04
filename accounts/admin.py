@@ -51,4 +51,9 @@ class UserGameStatsAdmin(admin.ModelAdmin):
     win_rate_display.short_description = "Win Rate"
 
 
-admin.register(User)
+@admin.register(User)
+class UserAdmin(admin.ModelAdmin):
+    list_display = ['username', 'is_active', 'is_staff', 'date_joined']
+    search_fields = ['username',]
+    list_filter = ['is_active', 'is_staff']
+    ordering = ['-date_joined']

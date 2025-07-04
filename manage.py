@@ -2,16 +2,11 @@
 """Django's command-line utility for administrative tasks."""
 import os
 import sys
-import dotenv
-
+from dotenv import load_dotenv
 
 def main():
     """Run administrative tasks."""
-    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    try:
-        dotenv.read_dotenv(BASE_DIR, '.env')
-    except IsADirectoryError:
-        dotenv.read_dotenv()
+    load_dotenv()
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'igame.settings')
     try:
         from django.core.management import execute_from_command_line

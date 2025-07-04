@@ -5,7 +5,12 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
 import uuid
 from django.conf import settings
+import random
 
+
+def generate_winning_number():
+    """Generate random winning number between 1-10"""
+    return random.randint(1, 10)
 
 class User(AbstractUser):
     username = models.CharField(max_length=50, unique=True)
@@ -15,6 +20,25 @@ class User(AbstractUser):
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     is_superuser = models.BooleanField(default=False)
+
+
+class GameSessionManager(models.Manager):
+    def get_current_active_session(self):
+        return self.filter(is_active=True).order_by('-start_time').first()
+
+    def get_or_create_current_active_session(self):
+        session = self.get_current_active_session()
+        if not session:
+            session = self.create_new_session()
+        return session
+
+    def create_new_session(self):
+        session = self.create(
+            is_active=True,
+            start_time=timezone.now(),
+            winning_number=generate_winning_number()
+        )
+        return session
 
 
 class GameSession(models.Model):
@@ -31,6 +55,8 @@ class GameSession(models.Model):
     player_count = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    objects = GameSessionManager()
 
     class Meta:
         db_table = 'game_sessions'
@@ -86,6 +112,10 @@ class GameParticipation(models.Model):
         return f"{self.user.username} in {self.session.session_id}"
 
 
+class UserGameStatsManager(models.Manager):
+    def get_leaderboard(self, limit=10):
+        return self.order_by('-wins', '-games_played', '-best_streak')[:limit]
+
 class UserGameStats(models.Model):
     """Extended user statistics for games"""
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='game_stats')
@@ -96,6 +126,8 @@ class UserGameStats(models.Model):
     last_played = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    objects = UserGameStatsManager()
 
     class Meta:
         db_table = 'user_game_stats'
